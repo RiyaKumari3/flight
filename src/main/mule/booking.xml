@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<flow name="post:\Booking:application\json:flight-config">
+		<flow-ref doc:name="Flow Reference" doc:id="333ada41-ae86-463c-8d9d-5ae7d4a6c7ed" name="commonFlow"/>
+		<set-variable value="#[uuid()]" doc:name="Set Variable" doc:id="646fcd2b-fe14-4277-bbe5-f98ba7339299" variableName="Transaction_ID"/>
+		<db:insert doc:name="Insert into person Table" doc:id="be48a74d-cd3e-492b-a96f-955e92abe7e0" config-ref="Database_Config">
+			<db:sql ><![CDATA[Insert Into Person (First_name,Last_Name, Email_Address, Phone_Number,Transaction_ID) 
+Values(:First_Name,:Last_Name,:Email_Address,:Phone_Number,:Transaction_ID);]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"First_Name": payload.First_Name,
+	"Last_Name" : payload.Last_Name,
+	"Email_Address": payload.Email_Address,
+	"Phone_Number" : payload.Phone_Number,
+	"Transaction_ID" : vars.Transaction_ID
+	
+	
+}]]]></db:input-parameters>
+		</db:insert>
+		<db:select doc:name="Retriving PNR" doc:id="5fa595f6-d011-41a1-8433-a53afb2b0ad4" config-ref="Database_Config">
+			<db:sql ><![CDATA[select PNR from Person where Transaction_ID = :Transaction_ID;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"Transaction_ID" : vars.Transaction_ID
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Fetching PNR" doc:id="e6d91e08-695b-41ec-8cb0-fcd9c948b151" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="PNR" ><![CDATA[%dw 2.0
+output application/json
+---
+payload[0].PNR]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		 <db:insert doc:name="making a booking" doc:id="112ce822-e31c-4104-aafc-57a3e2460d5a" config-ref="Database_Config">
+			<db:sql ><![CDATA[Insert Into Booking (Flight_ID,PNR) 
+Values (:Flight_ID,:PNR);]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"Flight_ID": vars.setPayload.Flight_ID ,
+	"PNR" : vars.PNR
+}]]]></db:input-parameters>
+		</db:insert>
+		<db:select doc:name="Fetching Booking ID" doc:id="98aa5022-e7d6-469b-98a8-737239739fa7" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from Booking where Flight_ID = :Flight_ID and PNR = :PNR ;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"Flight_ID": vars.setPayload.Flight_ID ,
+	"PNR" : vars.PNR
+}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="90786b43-4013-4ee5-9f89-c07bc1f11edc" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{   
+	"ReasonCode": 201,
+	"Message":" Booking Confirmed ! ",
+	"Booking Details" : {
+		"PNR": vars.PNR ,
+		"Flight_ID": vars.setPayload.Flight_ID,
+		"Booking_ID" : payload[0].Booking_ID
+		
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform> 
+    
+</flow>
+     <flow name="get:\Booking\(booking_id):flight-config">
+        <flow-ref doc:name="commonFlow- Reading Booking Id" doc:id="36313da2-d20c-4192-b25b-11dbc15b8fd6" name="commonFlow"/>
+        <!-- <flow-ref doc:name="Validation-Flow" doc:id="e344175c-8989-461f-97ef-17e12800bcd5" name="Validation-Flow"/> -->
+		<db:select doc:name="Select" doc:id="4faee304-8728-47df-be06-bff7896ba8b6" config-ref="Database_Config">
+			<db:sql ><![CDATA[select B.Booking_ID, B.Flight_ID, B.PNR, P.First_Name, P.Last_Name, P.Email_Address, P.Phone_Number, 
+F.Flight_Name, F.Source,F. Destination, F.Departure_Date, F.Departure_Time,
+F.Arrival_Date,F.Arrival_Time,F.Stops, F.Price from Booking B, Flight F, Person P 
+where B.Flight_id = F.Flight_ID and B.PNR = P.PNR and B.Booking_ID = :bookingId]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"bookingId": vars.bookingId
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="85e46d7a-fad5-4e19-a202-d932f0dd2078" >
+			<when expression="#[isEmpty(payload)]">
+				<ee:transform doc:name="Transform Message" doc:id="fe4284c5-730b-44e7-aada-a18307ee3d31" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{   
+	"ReasonCode": 404,
+	"Message":"No Booking Found"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  "Booking_ID": payload[0].Booking_ID,
+  "Flight_ID": payload[0].Flight_ID,
+  "Flight_Name": payload[0].Flight_Name,
+  "PNR": payload[0].PNR,
+  "First_Name": payload[0].First_Name,
+  "Last_Name": payload[0].Last_Name,
+  "Email_Address": payload[0].Email_Address,
+  "Phone_Number": payload[0].Phone_Number,
+  "Source": payload[0].Source,
+  "Destination": payload[0].Destination,
+  "Departure_Date": payload[0].Departure_Date,
+  "Departure_Time": payload[0].Departure_Time,
+  "Arrival_Date": payload[0].Arrival_Date,
+  "Arrival_Time": payload[0].Arrival_Time,
+  "Stops": payload[0].Stops,
+  "Price": payload[0].Price
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+			</otherwise>
+		</choice>
+    </flow>
+    
+	
+	</mule>

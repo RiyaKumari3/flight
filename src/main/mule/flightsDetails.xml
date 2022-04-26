@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<flow name="get:\Flights:flight-config">
+        <db:select doc:name="Select" doc:id="999962ba-4462-4496-913b-9c669fa2e54b" config-ref="Database_Config">
+			<db:sql ><![CDATA[Select * from flight;]]></db:sql>
+		</db:select>
+		<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\Flights\(id):flight-config">
+        <flow-ref doc:name="commonFlow-Read Flight Id" doc:id="e5feec41-777b-4f93-b132-4be75269cd16" name="commonFlow"/>
+        <db:select doc:name="Select" doc:id="021bcb49-4a7f-4222-89db-b416f24bde02" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from flight where Flight_ID = :flightId;]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	"flightId": vars.flightId
+}]]]></db:input-parameters>
+		</db:select>
+		<choice doc:name="Choice" doc:id="5629271d-755d-46cf-a61f-c0c7a21d5b5e" >
+			<when expression="#[isEmpty(payload)]">
+				<ee:transform doc:name="Transform Message" doc:id="d18d8d95-6a18-4f69-9521-22c9a37ef9fd" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{   
+	"ReasonCode": 404,
+	"Message":"No Flights Found"
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[404]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<ee:transform>
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+			</otherwise>
+		</choice>
+    </flow>
+	
+	</mule>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="commonFlow" doc:id="cbae182b-dc99-4eac-ae85-02bff74ebe5b" >
+		<ee:transform doc:name="Transform Message" doc:id="50d17215-300e-4a4f-97e7-e9d4a171f55e" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="client_id" ><![CDATA[attributes.headers.client_id]]></ee:set-variable>
+				<ee:set-variable variableName="client_secret" ><![CDATA[attributes.headers.client_secret]]></ee:set-variable>
+				<ee:set-variable variableName="flightId" ><![CDATA[attributes.uriParams.'id']]></ee:set-variable>
+				<ee:set-variable variableName="bookingId" ><![CDATA[attributes.uriParams.'booking_id']]></ee:set-variable>
+				<ee:set-variable variableName="setPayload" ><![CDATA[payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+	</flow>
+	<!-- <sub-flow name="Validation-Flow" doc:id="a76f9be4-e5a3-49ee-bcc6-1749e871561d" >
+		<validation:is-blank-string doc:name="Is blank string" doc:id="5faec8ef-7950-414e-ae75-85079b4bd154" value="#[attributes.uriParams.'booking_id']" message='"booking_id can not be blank"'/>
+	</sub-flow> -->
+</mule>

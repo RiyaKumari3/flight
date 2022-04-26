@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    <flow name="flight-main">
+        <http:listener config-ref="flight-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="flight-config" />
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3bcb691f-7012-4da5-95b9-84e00eaa0bc2" type="APIKIT:BAD_REQUEST, APIKIT:METHOD_NOT_ALLOWED, APIKIT:NOT_ACCEPTABLE, APIKIT:NOT_FOUND, APIKIT:UNSUPPORTED_MEDIA_TYPE, EXPRESSION" >
+				<ee:transform doc:name="errorVariable" doc:id="44e4e826-82af-4637-bde0-2661324e8085" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="error" ><![CDATA[%dw 2.0
+output application/json
+import remove from dw::core::Strings
+
+var errorType = (if(error.errorType.namespace != null) {errorType : error.errorType.namespace }  else {errorType : ""})
+---
+{
+    "errorType" : errorType.errorType  ++ ":"++ error.errorType.identifier  as String ,
+    "errorDecription" : (error.description) remove "\""
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="statusCode Variable" doc:id="7632ad01-741d-43b7-bb74-ad5a3b85d2e6" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="statusCode" ><![CDATA[%dw 2.0
+output application/json
+---
+(
+	if((vars.error.errorType == 'VALIDATION:BLANK_STRING') or (vars.error.errorType== 'APIKIT:BAD_REQUEST')) 
+	{"statusCode" : 400}
+	else if (vars.error.errorType == 'APIKIT:METHOD_NOT_ALLOWED')
+	{"statusCode" : 405}
+	else if (vars.error.errorType == 'APIKIT:NOT_ACCEPTABLE')
+	{"statusCode" : 406}
+	else if (vars.error.errorType == 'APIKIT:UNSUPPORTED_MEDIA_TYPE')
+	{"statusCode" : 415}
+	else 
+	{"statusCode" : 500}
+)]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="settingErrorObject" doc:id="ff19f923-ff4c-4e4a-932e-6853e7d8c65c" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"ReasonCode" : vars.statusCode.statusCode,
+	"Error Description": vars.error.errorDecription
+}
+]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[vars.statusCode.statusCode]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="flight-console">
+        <http:listener config-ref="flight-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="flight-config" />
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1cd92c2e-f302-4a65-a52e-90a6506cf23f" type="APIKIT:BAD_REQUEST, APIKIT:METHOD_NOT_ALLOWED, APIKIT:NOT_ACCEPTABLE, APIKIT:NOT_FOUND, APIKIT:UNSUPPORTED_MEDIA_TYPE, EXPRESSION" >
+				<ee:transform doc:name="errorVariable" doc:id="a48a3b74-9fc0-4bd9-bc8d-50df36f0d9d0" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="error" ><![CDATA[%dw 2.0
+output application/json
+import remove from dw::core::Strings
+
+var errorType = (if(error.errorType.namespace != null) {errorType : error.errorType.namespace }  else {errorType : ""})
+---
+{
+    "errorType" : errorType.errorType  ++ ":"++ error.errorType.identifier  as String ,
+    "errorDecription" : (error.description) remove "\""
+}]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="statusCode Variable" doc:id="26e97984-5e89-4859-9c9a-f52bb4af83a0" >
+					<ee:message >
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="statusCode" ><![CDATA[%dw 2.0
+output application/json
+---
+(
+	if((vars.error.errorType == 'VALIDATION:BLANK_STRING') or (vars.error.errorType== 'APIKIT:BAD_REQUEST')) 
+	{"statusCode" : 400}
+	else if (vars.error.errorType == 'APIKIT:METHOD_NOT_ALLOWED')
+	{"statusCode" : 405}
+	else if (vars.error.errorType == 'APIKIT:NOT_ACCEPTABLE')
+	{"statusCode" : 406}
+	else if (vars.error.errorType == 'APIKIT:UNSUPPORTED_MEDIA_TYPE')
+	{"statusCode" : 415}
+	else 
+	{"statusCode" : 500}
+)]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<ee:transform doc:name="settingErrorObject" doc:id="5f1283c8-81c4-4ef8-86e9-61df40d0be5b" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"ReasonCode" : vars.statusCode.statusCode,
+	"Error Description": vars.error.errorDecription
+}
+]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="httpStatus" ><![CDATA[vars.statusCode.statusCode]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+        </error-handler>
+    </flow>
+</mule>
